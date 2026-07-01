@@ -27,6 +27,7 @@ from app.services.platform.embedding_backends.vertex_ai import VertexAIEmbedding
 from app.services.platform.llm_backends.base import BaseLLMBackend
 from app.services.platform.llm_backends.gemini_api import GeminiAPIBackend
 from app.services.platform.llm_backends.vertex_ai import VertexAIBackend
+from app.services.platform.llm_service import LLMService
 from app.services.business.auth_service import AuthService
 from app.services.business.escalation_service import EscalationService
 from app.services.business.password_service import PasswordService
@@ -245,9 +246,9 @@ def get_intent_dispatcher(
 def get_llm_service(
     backend: BaseLLMBackend = Depends(get_llm_backend),
     logger: structlog.BoundLogger = Depends(get_logger),
-) -> object:
-    """Provide an LLMService with injected backend. Implemented in Phase 5."""
-    ...
+) -> LLMService:
+    """Provide an LLMService with the configured backend (gemini_api or vertex_ai)."""
+    return LLMService(backend=backend, logger=logger)
 
 
 def get_rag_service(

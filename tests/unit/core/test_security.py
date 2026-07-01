@@ -37,8 +37,12 @@ class TestJWTSecurity:
         """A token with a modified signature raises AuthenticationError."""
         token = create_webhook_token(_SECRET)
         parts = token.split(".")
-        last_char = parts[-1][-1]
-        parts[-1] = parts[-1][:-1] + ("A" if last_char != "A" else "B")
+        # Alter a character in the middle of the signature (avoids base64url
+        # padding-bit-only changes that leave the decoded bytes identical).
+        mid = len(parts[-1]) // 2
+        mid_char = parts[-1][mid]
+        replacement = "B" if mid_char != "B" else "C"
+        parts[-1] = parts[-1][:mid] + replacement + parts[-1][mid + 1:]
         tampered = ".".join(parts)
         with pytest.raises(AuthenticationError):
             decode_webhook_token(tampered, _SECRET)

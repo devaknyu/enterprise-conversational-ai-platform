@@ -1,4 +1,4 @@
-"""LLM orchestration service. Implemented in Phase 5.
+"""LLM orchestration service.
 
 This is the ONLY file in the codebase that calls any LLM backend.
 Handlers and business services never import from google-generativeai or
@@ -9,6 +9,14 @@ import structlog
 
 from app.services.business.base import BaseService
 from app.services.platform.llm_backends.base import BaseLLMBackend
+
+DEFAULT_SYSTEM_PROMPT = (
+    "You are an enterprise IT support assistant. "
+    "Answer employee questions accurately and concisely based on company IT policies. "
+    "If the provided context does not contain the answer, say so clearly and suggest "
+    "the employee contact the IT helpdesk for further assistance. "
+    "Never fabricate policy details."
+)
 
 
 class LLMService(BaseService):
@@ -54,4 +62,21 @@ class LLMService(BaseService):
         Raises:
             LLMError: If the backend call fails after retries.
         """
-        ...
+        effective_system = system_prompt or DEFAULT_SYSTEM_PROMPT
+
+        parts: list[str] = [effective_system]
+
+        if context_chunks:
+            for i, chunk in enumerate(context_chunks, start=1):
+                parts.append(f"[Context {i}]\n{chunk}")
+
+        parts.append(f"Employee question: {query}")
+        assembled_prompt = "\n\n".join(parts)
+
+        self.logger.info(
+            "llm_service_generate",
+            query_length=len(query),
+            chunk_count=len(context_chunks) if context_chunks else 0,
+        )
+
+        return await self.backend.generate(assembled_prompt)
