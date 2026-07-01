@@ -28,7 +28,11 @@ from app.services.platform.llm_backends.base import BaseLLMBackend
 from app.services.platform.llm_backends.gemini_api import GeminiAPIBackend
 from app.services.platform.llm_backends.vertex_ai import VertexAIBackend
 from app.services.business.auth_service import AuthService
+from app.services.business.escalation_service import EscalationService
+from app.services.business.password_service import PasswordService
 from app.services.business.session_service import SessionService
+from app.services.business.ticket_service import TicketService
+from app.services.business.vpn_service import VPNService
 from app.webhook.dispatcher import IntentDispatcher
 
 
@@ -170,27 +174,40 @@ def get_password_service(
     ad_client: BaseActiveDirectoryClient = Depends(get_ad_client),
     session_service: SessionService = Depends(get_session_service),
     logger: structlog.BoundLogger = Depends(get_logger),
-) -> object:
-    """Provide a PasswordService with injected dependencies. Implemented in Phase 3d."""
-    ...
+) -> PasswordService:
+    """Provide a PasswordService with injected AD client and session service."""
+    return PasswordService(ad_client=ad_client, session_service=session_service, logger=logger)
 
 
 def get_ticket_service(
     servicenow_client: BaseServiceNowClient = Depends(get_servicenow_client),
     session_service: SessionService = Depends(get_session_service),
     logger: structlog.BoundLogger = Depends(get_logger),
-) -> object:
-    """Provide a TicketService with injected dependencies. Implemented in Phase 3d."""
-    ...
+) -> TicketService:
+    """Provide a TicketService with injected ServiceNow client and session service."""
+    return TicketService(
+        servicenow_client=servicenow_client, session_service=session_service, logger=logger
+    )
 
 
 def get_vpn_service(
     vpn_client: BaseVPNClient = Depends(get_vpn_client),
     session_service: SessionService = Depends(get_session_service),
     logger: structlog.BoundLogger = Depends(get_logger),
-) -> object:
-    """Provide a VPNService with injected dependencies. Implemented in Phase 3d."""
-    ...
+) -> VPNService:
+    """Provide a VPNService with injected VPN client and session service."""
+    return VPNService(vpn_client=vpn_client, session_service=session_service, logger=logger)
+
+
+def get_escalation_service(
+    servicenow_client: BaseServiceNowClient = Depends(get_servicenow_client),
+    session_service: SessionService = Depends(get_session_service),
+    logger: structlog.BoundLogger = Depends(get_logger),
+) -> EscalationService:
+    """Provide an EscalationService with injected ServiceNow client and session service."""
+    return EscalationService(
+        servicenow_client=servicenow_client, session_service=session_service, logger=logger
+    )
 
 
 def get_llm_service(

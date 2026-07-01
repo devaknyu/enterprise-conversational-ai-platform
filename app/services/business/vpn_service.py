@@ -2,7 +2,9 @@
 
 import structlog
 
+from app.integrations.vpn.base import BaseVPNClient
 from app.services.business.base import BaseService
+from app.services.business.session_service import SessionService
 
 
 class VPNService(BaseService):
@@ -14,8 +16,8 @@ class VPNService(BaseService):
 
     def __init__(
         self,
-        vpn_client: object,
-        session_service: object,
+        vpn_client: BaseVPNClient,
+        session_service: SessionService,
         logger: structlog.BoundLogger,
     ) -> None:
         super().__init__(logger)
@@ -41,4 +43,43 @@ class VPNService(BaseService):
         Raises:
             VPNServiceError: If VPN gateway is unreachable after retries.
         """
-        ...
+        self.logger.info(
+            "vpn_diagnosis_started",
+            user_id=user_id,
+            session_id=session_id,
+            symptom_count=len(symptoms),
+        )
+
+        # VPNServiceError propagates — caller (handler) decides the user-facing response
+        status = await self.vpn_client.get_connection_status(user_id)
+        diagnostics = await self.vpn_client.run_diagnostics(user_id)
+
+        connected: bool = status["connected"]
+        issues: list[str] = diagnostics["issues"]
+        steps: list[str] = diagnostics["recommended_actions"]
+        escalate: bool = len(issues) > 0
+
+        if connected:
+            diagnosis = "VPN connection is active. No issues detected."
+        else:
+            diagnosis = f"VPN tunnel failure detected. {len(issues)} issue(s) found."
+
+        await self.session_service.record_action(
+            session_id=session_id,
+            action="vpn_diagnosis_run",
+            metadata={
+                "user_id": user_id,
+                "connected": connected,
+                "issue_count": len(issues),
+                "escalate": escalate,
+            },
+        )
+        self.logger.info(
+            "vpn_diagnosis_complete",
+            user_id=user_id,
+            session_id=session_id,
+            connected=connected,
+            issue_count=len(issues),
+            escalate=escalate,
+        )
+        return {"diagnosis": diagnosis, "steps": steps, "escalate": escalate}
