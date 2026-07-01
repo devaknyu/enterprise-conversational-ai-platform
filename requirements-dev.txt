@@ -1,0 +1,14 @@
+# Includes all production dependencies
+-r requirements.txt
+
+# Testing
+pytest==8.3.2
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+
+# Local embedding model (dev/free — replaces Vertex AI text-embedding-004 in dev)
+sentence-transformers==3.1.1
+
+# Linting + type checking
+ruff==0.6.4
+mypy==1.11.2

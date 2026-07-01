@@ -1,0 +1,195 @@
+%% ============================================================
+%% Enterprise IT Support Assistant — Sequence Diagrams
+%% ============================================================
+%% Three main fulfillment flows:
+%%   1. Password Reset
+%%   2. IT Ticket Creation
+%%   3. RAG Policy Question
+%%
+%% To render: paste each diagram block into https://mermaid.live
+%% or use VS Code's Mermaid Preview extension.
+%% ============================================================
+
+
+%% ------------------------------------------------------------
+%% Flow 1: Password Reset
+%% ------------------------------------------------------------
+sequenceDiagram
+    autonumber
+    participant Emp    as Employee
+    participant DFX    as Dialogflow CX
+    participant API    as FastAPI /webhook
+    participant Auth   as AuthMiddleware
+    participant Disp   as IntentDispatcher
+    participant PH     as PasswordHandler
+    participant PS     as PasswordService
+    participant SS     as SessionService
+    participant AD     as AD Client (Mock)
+    participant RB     as ResponseBuilder
+
+    Emp->>DFX: "I need to reset my password"
+    Note over DFX: Matches intent: it.password.reset<br/>Extracts entity: user_email
+
+    DFX->>API: POST /webhook<br/>Authorization: Bearer JWT<br/>Body: WebhookRequest{intent, session_params}
+
+    API->>Auth: validate_jwt(token)
+    alt JWT invalid or expired
+        Auth-->>API: raise AuthenticationError
+        API-->>DFX: HTTP 401 Unauthorized
+        DFX-->>Emp: "I'm having trouble verifying your request."
+    else JWT valid
+        Auth-->>API: ok
+
+        API->>Disp: dispatch(intent="it.password.reset", request)
+        Disp->>PH: handle(webhook_request)
+
+        PH->>PH: extract user_email from session_params
+        alt user_email missing
+            PH-->>Disp: raise MissingParameterError
+            Disp-->>API: error
+            API-->>DFX: WebhookResponse{message: "I need your email address to proceed."}
+            DFX-->>Emp: "I need your email address to proceed."
+        else user_email present
+            PH->>PS: initiate_reset(user_id, session_id)
+
+            PS->>SS: record_action(session_id, "password_reset_initiated")
+            SS-->>PS: ok
+
+            PS->>AD: reset_password(user_id)
+            Note over AD: Simulates 100–300ms latency<br/>5% random transient error
+
+            alt AD returns UserNotFoundError
+                AD-->>PS: raise UserNotFoundError
+                PS-->>PH: raise UserNotFoundError
+                PH->>RB: build_error_response("user_not_found")
+                RB-->>API: WebhookResponse{message: "I couldn't find an account for that email address."}
+                API-->>DFX: HTTP 200 + WebhookResponse
+                DFX-->>Emp: "I couldn't find an account for that email address."
+            else AD reset successful
+                AD-->>PS: PasswordResetResult{success=True, delivery="email", ticket_ref="AD-RESET-84729301"}
+                PS-->>PH: result
+                PH->>RB: build_password_reset_response(result)
+                RB-->>API: WebhookResponse{message: "Your reset link has been sent..."}
+                API-->>DFX: HTTP 200 + WebhookResponse
+                DFX-->>Emp: "Your password reset email has been sent.<br/>Check your inbox within 5 minutes.<br/>Reference: AD-RESET-84729301"
+            end
+        end
+    end
+
+
+%% ------------------------------------------------------------
+%% Flow 2: IT Ticket Creation
+%% ------------------------------------------------------------
+sequenceDiagram
+    autonumber
+    participant Emp    as Employee
+    participant DFX    as Dialogflow CX
+    participant API    as FastAPI /webhook
+    participant Auth   as AuthMiddleware
+    participant Disp   as IntentDispatcher
+    participant TH     as TicketHandler
+    participant TS     as TicketService
+    participant SS     as SessionService
+    participant SN     as ServiceNow Client (Mock)
+    participant RB     as ResponseBuilder
+
+    Emp->>DFX: "Create a ticket — my VPN isn't working"
+    Note over DFX: Matches intent: it.ticket.create<br/>Extracts: issue_description, priority (default: medium)
+
+    DFX->>API: POST /webhook<br/>Authorization: Bearer JWT<br/>Body: WebhookRequest{intent, session_params}
+
+    API->>Auth: validate_jwt(token)
+    Auth-->>API: JWT valid
+
+    API->>Disp: dispatch(intent="it.ticket.create", request)
+    Disp->>TH: handle(webhook_request)
+
+    TH->>TH: extract issue_description, priority, user_email from session_params
+
+    TH->>TS: create_ticket(description, priority, user_id, session_id)
+
+    TS->>SS: record_action(session_id, "ticket_creation_initiated")
+    SS-->>TS: ok
+
+    TS->>SN: create_incident(description, priority, caller_id)
+    Note over SN: Simulates 100–300ms latency<br/>Returns realistic ticket number
+
+    alt ServiceNow unavailable (TicketCreationError)
+        SN-->>TS: raise IntegrationError
+        TS-->>TH: raise TicketCreationError
+        TH->>RB: build_error_response("ticket_creation_failed")
+        RB-->>API: WebhookResponse{message: "I'm unable to create a ticket right now.<br/>Please try again or call the IT helpdesk."}
+        API-->>DFX: HTTP 200 + WebhookResponse
+        DFX-->>Emp: "I'm unable to create a ticket right now. Please try again or call the IT helpdesk."
+    else Ticket created successfully
+        SN-->>TS: IncidentResult{ticket_number="INC0001234", state="Open", priority="3 - Moderate"}
+        TS->>SS: record_action(session_id, "ticket_created", metadata={ticket_id: "INC0001234"})
+        SS-->>TS: ok
+        TS-->>TH: result
+        TH->>RB: build_ticket_created_response(result)
+        RB-->>API: WebhookResponse{message: "Ticket INC0001234 created..."}
+        API-->>DFX: HTTP 200 + WebhookResponse
+        DFX-->>Emp: "I've created ticket INC0001234 (priority: Moderate).<br/>You'll receive an email confirmation shortly.<br/>You can ask me for a status update anytime."
+    end
+
+
+%% ------------------------------------------------------------
+%% Flow 3: RAG Policy Question
+%% ------------------------------------------------------------
+sequenceDiagram
+    autonumber
+    participant Emp    as Employee
+    participant DFX    as Dialogflow CX
+    participant API    as FastAPI /webhook
+    participant Auth   as AuthMiddleware
+    participant Disp   as IntentDispatcher
+    participant RH     as RAGHandler
+    participant RS     as RAGService
+    participant CDB    as ChromaDB
+    participant VAI    as Vertex AI (Embeddings)
+    participant LS     as LLMService
+    participant GEM    as Vertex AI (Gemini 1.5 Pro)
+    participant RB     as ResponseBuilder
+
+    Emp->>DFX: "What are the password complexity requirements?"
+    Note over DFX: Matches intent: it.policy.query<br/>Extracts: query_text
+
+    DFX->>API: POST /webhook<br/>Authorization: Bearer JWT<br/>Body: WebhookRequest{intent, session_params}
+
+    API->>Auth: validate_jwt(token)
+    Auth-->>API: JWT valid
+
+    API->>Disp: dispatch(intent="it.policy.query", request)
+    Disp->>RH: handle(webhook_request)
+
+    RH->>RH: extract query_text from session_params
+
+    RH->>RS: retrieve(query_text, top_k=5)
+    Note over RS: RAG retrieval always happens<br/>before LLM is called
+
+    RS->>VAI: embed(query_text)<br/>model: text-embedding-004
+    VAI-->>RS: query_embedding[768 dims]
+
+    RS->>CDB: similarity_search(query_embedding, n_results=5, where={category: ...})
+    CDB-->>RS: [chunk1, chunk2, chunk3, chunk4, chunk5]<br/>each with text + metadata
+
+    alt ChromaDB retrieval fails (RAGRetrievalError)
+        RS-->>RH: raise RAGRetrievalError
+        Note over RH: Fallback: proceed without context<br/>LLM answers from general training only
+        RH->>LS: generate(prompt=system_prompt + "[no context available]" + query)
+    else Retrieval successful
+        RS-->>RH: context_chunks[5]
+        RH->>LS: generate(prompt=system_prompt + context_chunks + query)
+    end
+
+    Note over LS: Builds structured prompt:<br/>1. System instructions<br/>2. Retrieved context chunks<br/>3. Employee query
+
+    LS->>GEM: GenerateContent(prompt, safety_settings)
+    Note over GEM: All inference stays within<br/>Google Cloud (data residency)
+    GEM-->>LS: GenerateContentResponse{text: "Your password must be at least 12 characters..."}
+
+    LS-->>RH: generated_text
+    RH->>RB: build_rag_response(generated_text, sources=context_chunks)
+    RB-->>API: WebhookResponse{message: generated_text}
+    API-->>DFX: HTTP 200 + WebhookResponse
+    DFX-->>Emp: "According to our password policy, your password must be at least<br/>12 characters and include uppercase, lowercase, numbers, and symbols.<br/>Passwords expire every 90 days."

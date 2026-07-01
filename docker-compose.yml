@@ -1,0 +1,33 @@
+version: "3.9"
+
+# =============================================================================
+# Production-equivalent compose (mirrors Cloud Run deployment locally)
+# Usage: docker-compose up
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: enterprise-it-assistant:latest
+    container_name: it-assistant
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      # Mount persisted ChromaDB so it survives container restarts
+      - chroma_data:/app/knowledge_base/chroma_db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  chroma_data:
+    driver: local

@@ -1,0 +1,86 @@
+%% Enterprise IT Support Assistant — System Architecture
+%% Mermaid C4-style component diagram
+%% Render at https://mermaid.live
+
+flowchart TB
+    subgraph Users["Users"]
+        EMP["👤 Employee\n(Chat / Voice)"]
+    end
+
+    subgraph GCP_Front["Google Cloud — Conversational Layer"]
+        DFX["Dialogflow CX\nIntents · Flows · Entities\nConversation State"]
+    end
+
+    subgraph CloudRun["Google Cloud Run — FastAPI Application"]
+        direction TB
+        MW["Middleware\nJWT Auth · Request Logging"]
+        ROUTE["POST /webhook\nRoute Handler"]
+        DISP["IntentDispatcher\nIntent → Handler Map"]
+
+        subgraph Handlers["Webhook Handlers"]
+            PH["PasswordHandler"]
+            TH["TicketHandler"]
+            VPNH["VPNHandler"]
+            RAGH["RAGHandler"]
+            ESC["EscalationHandler"]
+        end
+
+        subgraph BizSvcs["Business Services"]
+            PS["PasswordService"]
+            TS["TicketService"]
+            VS["VPNService"]
+            SS["SessionService"]
+        end
+
+        subgraph PlatSvcs["Platform Services"]
+            LLM["LLMService\nGemini orchestration"]
+            RAG["RAGService\nChromaDB retrieval"]
+        end
+    end
+
+    subgraph LLMBackend["LLM Backend (env-var selected)"]
+        GAPI["GeminiAPIBackend\nDev: gemini-2.0-flash\nFree AI Studio API key"]
+        VAI["VertexAIBackend\nProd: gemini-1.5-pro\nIAM auth · Data residency"]
+    end
+
+    subgraph EmbedBackend["Embedding Backend (env-var selected)"]
+        LOCAL["LocalEmbeddingBackend\nDev: all-MiniLM-L6-v2\nsentence-transformers"]
+        VAIE["VertexAIEmbeddingBackend\nProd: text-embedding-004"]
+    end
+
+    subgraph VectorDB["Vector Store"]
+        CHROMA["ChromaDB\nIT Knowledge Base\n~2000 chunks"]
+    end
+
+    subgraph Integrations["External Integrations (Mock in Dev / Real in Prod)"]
+        AD["Active Directory\nPassword resets\nUser profiles"]
+        SN["ServiceNow\nTicket create/query\nEscalation records"]
+        VPN["VPN Gateway\nConnection status\nDiagnostics"]
+    end
+
+    EMP -->|"Chat / Voice"| DFX
+    DFX -->|"POST /webhook\nBearer JWT"| MW
+    MW --> ROUTE
+    ROUTE --> DISP
+    DISP --> PH & TH & VPNH & RAGH & ESC
+    PH --> PS
+    TH --> TS
+    VPNH --> VS
+    RAGH --> RAG
+    RAGH --> LLM
+    PS & TS & VS --> SS
+
+    LLM -->|"LLM_BACKEND=gemini_api"| GAPI
+    LLM -->|"LLM_BACKEND=vertex_ai"| VAI
+    RAG -->|"EMBEDDING_BACKEND=local"| LOCAL
+    RAG -->|"EMBEDDING_BACKEND=vertex_ai"| VAIE
+    RAG --> CHROMA
+
+    PS -->|"USE_MOCK_INTEGRATIONS"| AD
+    TS & ESC -->|"USE_MOCK_INTEGRATIONS"| SN
+    VS -->|"USE_MOCK_INTEGRATIONS"| VPN
+
+    style GAPI fill:#d4edda,stroke:#28a745
+    style LOCAL fill:#d4edda,stroke:#28a745
+    style VAI fill:#cce5ff,stroke:#004085
+    style VAIE fill:#cce5ff,stroke:#004085

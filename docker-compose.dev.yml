@@ -1,0 +1,40 @@
+version: "3.9"
+
+# =============================================================================
+# Development compose — hot reload, source mount, local port
+# Usage: docker-compose -f docker-compose.dev.yml up
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder       # Use builder stage so dev deps are available
+    image: enterprise-it-assistant:dev
+    container_name: it-assistant-dev
+    ports:
+      - "8000:8000"         # Expose on 8000 locally for dev
+    env_file:
+      - .env
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: DEBUG
+    volumes:
+      # Mount source for hot reload
+      - ./app:/app/app
+      - ./knowledge_base:/app/knowledge_base
+      # Persist ChromaDB between restarts
+      - chroma_dev_data:/app/knowledge_base/chroma_db
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/app
+      --log-level debug
+    restart: unless-stopped
+
+volumes:
+  chroma_dev_data:
+    driver: local
