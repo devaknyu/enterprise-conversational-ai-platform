@@ -27,6 +27,8 @@ from app.services.platform.embedding_backends.vertex_ai import VertexAIEmbedding
 from app.services.platform.llm_backends.base import BaseLLMBackend
 from app.services.platform.llm_backends.gemini_api import GeminiAPIBackend
 from app.services.platform.llm_backends.vertex_ai import VertexAIBackend
+from app.services.business.auth_service import AuthService
+from app.services.business.session_service import SessionService
 from app.webhook.dispatcher import IntentDispatcher
 
 
@@ -150,14 +152,23 @@ def get_intent_dispatcher(
 
 def get_session_service(
     logger: structlog.BoundLogger = Depends(get_logger),
-) -> object:
-    """Provide the SessionService singleton. Implemented in Phase 3b."""
-    ...
+) -> SessionService:
+    """Provide an in-memory SessionService. Phase 3b implementation."""
+    return SessionService(logger=logger)
+
+
+def get_auth_service(
+    ad_client: BaseActiveDirectoryClient = Depends(get_ad_client),
+    session_service: SessionService = Depends(get_session_service),
+    logger: structlog.BoundLogger = Depends(get_logger),
+) -> AuthService:
+    """Provide an AuthService for employee identity verification. Phase 3b."""
+    return AuthService(ad_client=ad_client, session_service=session_service, logger=logger)
 
 
 def get_password_service(
     ad_client: BaseActiveDirectoryClient = Depends(get_ad_client),
-    session_service: object = Depends(get_session_service),
+    session_service: SessionService = Depends(get_session_service),
     logger: structlog.BoundLogger = Depends(get_logger),
 ) -> object:
     """Provide a PasswordService with injected dependencies. Implemented in Phase 3d."""
@@ -166,7 +177,7 @@ def get_password_service(
 
 def get_ticket_service(
     servicenow_client: BaseServiceNowClient = Depends(get_servicenow_client),
-    session_service: object = Depends(get_session_service),
+    session_service: SessionService = Depends(get_session_service),
     logger: structlog.BoundLogger = Depends(get_logger),
 ) -> object:
     """Provide a TicketService with injected dependencies. Implemented in Phase 3d."""
@@ -175,7 +186,7 @@ def get_ticket_service(
 
 def get_vpn_service(
     vpn_client: BaseVPNClient = Depends(get_vpn_client),
-    session_service: object = Depends(get_session_service),
+    session_service: SessionService = Depends(get_session_service),
     logger: structlog.BoundLogger = Depends(get_logger),
 ) -> object:
     """Provide a VPNService with injected dependencies. Implemented in Phase 3d."""

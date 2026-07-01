@@ -1,5 +1,6 @@
 """Session state management service. Implemented in Phase 3b."""
 
+from datetime import datetime, timezone
 from typing import Any
 import structlog
 
@@ -19,6 +20,7 @@ class SessionService(BaseService):
 
     def __init__(self, logger: structlog.BoundLogger) -> None:
         super().__init__(logger)
+        self._store: dict[str, SessionState] = {}
 
     async def record_action(
         self,
@@ -34,7 +36,33 @@ class SessionService(BaseService):
             metadata: Additional context to store with the action (user IDs,
                 ticket numbers, etc.).
         """
-        ...
+        now = datetime.now(timezone.utc)
+
+        if session_id not in self._store:
+            self._store[session_id] = SessionState(
+                session_id=session_id,
+                actions=[],
+                created_at=now,
+                last_updated=now,
+            )
+
+        session = self._store[session_id]
+        session.actions.append(
+            SessionAction(
+                action=action,
+                session_id=session_id,
+                timestamp=now,
+                metadata=metadata or {},
+            )
+        )
+        session.last_updated = now
+
+        self.logger.info(
+            "session_action_recorded",
+            session_id=session_id,
+            action=action,
+            action_count=len(session.actions),
+        )
 
     async def get_session(self, session_id: str) -> SessionState | None:
         """Retrieve the current state of a session.
@@ -45,4 +73,4 @@ class SessionService(BaseService):
         Returns:
             SessionState if the session exists, None if not found.
         """
-        ...
+        return self._store.get(session_id)
