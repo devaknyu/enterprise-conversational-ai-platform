@@ -1,0 +1,371 @@
+{
+  "_comment": "Dialogflow CX agent skeleton. Mirrors the REST API structure at https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents. Populate 'name' and 'parent' with your GCP project details before importing.",
+  "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID",
+  "displayName": "Enterprise IT Support Assistant",
+  "defaultLanguageCode": "en",
+  "timeZone": "America/New_York",
+  "description": "Enterprise IT support assistant for employee self-service: password resets, ticket management, VPN troubleshooting, policy Q&A, and human agent escalation.",
+  "startFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/00000000-0000-0000-0000-000000000000",
+  "speechToTextSettings": {
+    "enableSpeechAdaptation": true
+  },
+  "intents": [
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/intents/password-reset",
+      "displayName": "it.password.reset",
+      "trainingPhrases": [
+        { "parts": [{ "text": "I need to reset my password" }], "repeatCount": 1 },
+        { "parts": [{ "text": "My password isn't working" }], "repeatCount": 1 },
+        { "parts": [{ "text": "I'm locked out of my account" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Forgot my AD password" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Password expired" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Can't log into Windows" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Reset password for " }, { "text": "john.doe@acme.com", "parameterId": "user_id" }], "repeatCount": 1 }
+      ]
+    },
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/intents/ticket-create",
+      "displayName": "it.ticket.create",
+      "trainingPhrases": [
+        { "parts": [{ "text": "I need to open a ticket" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Create a support request" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Log a new IT issue" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Submit a ticket for VPN problems" }], "repeatCount": 1 }
+      ]
+    },
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/intents/ticket-status",
+      "displayName": "it.ticket.status",
+      "trainingPhrases": [
+        { "parts": [{ "text": "What's the status of my ticket" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Check status of " }, { "text": "INC0001234", "parameterId": "ticket_number" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Where is my support request" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Update on INC0002345 please" }], "repeatCount": 1 }
+      ]
+    },
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/intents/vpn-troubleshoot",
+      "displayName": "it.vpn.troubleshoot",
+      "trainingPhrases": [
+        { "parts": [{ "text": "VPN isn't working" }], "repeatCount": 1 },
+        { "parts": [{ "text": "I can't connect to the company VPN" }], "repeatCount": 1 },
+        { "parts": [{ "text": "VPN keeps disconnecting" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Authentication failed on VPN" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Remote access not working" }], "repeatCount": 1 }
+      ]
+    },
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/intents/policy-query",
+      "displayName": "it.policy.query",
+      "trainingPhrases": [
+        { "parts": [{ "text": "What's the password policy" }], "repeatCount": 1 },
+        { "parts": [{ "text": "How do I install software" }], "repeatCount": 1 },
+        { "parts": [{ "text": "What software am I allowed to install" }], "repeatCount": 1 },
+        { "parts": [{ "text": "How long does a VPN session last" }], "repeatCount": 1 }
+      ]
+    },
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/intents/escalate",
+      "displayName": "it.escalate",
+      "trainingPhrases": [
+        { "parts": [{ "text": "I want to talk to a real person" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Can I speak to someone" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Connect me to IT support" }], "repeatCount": 1 },
+        { "parts": [{ "text": "This bot isn't helping" }], "repeatCount": 1 },
+        { "parts": [{ "text": "Transfer me to a human" }], "repeatCount": 1 }
+      ]
+    }
+  ],
+  "entityTypes": [
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/entityTypes/ticket-number",
+      "displayName": "it.ticket-number",
+      "kind": "KIND_REGEXP",
+      "entities": [
+        { "value": "INC\\d{7}", "synonyms": ["INC\\d{7}"] }
+      ]
+    },
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/entityTypes/vpn-symptom",
+      "displayName": "it.vpn-symptom",
+      "kind": "KIND_LIST",
+      "entities": [
+        { "value": "cannot connect", "synonyms": ["can't connect", "fails to connect", "won't connect", "not connecting"] },
+        { "value": "slow", "synonyms": ["slow speed", "poor performance", "latency", "lag", "sluggish"] },
+        { "value": "disconnects", "synonyms": ["keeps dropping", "disconnecting", "unstable", "dropping connection"] },
+        { "value": "auth failed", "synonyms": ["authentication error", "credentials rejected", "login failed", "wrong password"] },
+        { "value": "certificate error", "synonyms": ["cert error", "SSL error", "security warning", "certificate warning"] }
+      ]
+    }
+  ],
+  "webhooks": [
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/webhooks/it-assistant-webhook",
+      "displayName": "it-assistant-webhook",
+      "genericWebService": {
+        "uri": "https://YOUR_CLOUD_RUN_URL/webhook/",
+        "httpMethod": "POST",
+        "requestHeaders": {
+          "Content-Type": "application/json"
+        },
+        "allowedCaCerts": []
+      },
+      "timeout": "30s"
+    }
+  ],
+  "flows": [
+    {
+      "name": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/00000000-0000-0000-0000-000000000000",
+      "displayName": "Default Start Flow",
+      "description": "Entry point. Routes to specialist flows based on intent match.",
+      "transitionRoutes": [
+        {
+          "intent": "it.password.reset",
+          "targetFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/password-reset-flow"
+        },
+        {
+          "intent": "it.ticket.create",
+          "targetFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/ticket-management-flow"
+        },
+        {
+          "intent": "it.ticket.status",
+          "targetFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/ticket-management-flow"
+        },
+        {
+          "intent": "it.vpn.troubleshoot",
+          "targetFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/vpn-troubleshooting-flow"
+        },
+        {
+          "intent": "it.policy.query",
+          "targetFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/policy-query-flow"
+        },
+        {
+          "intent": "it.escalate",
+          "targetFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/escalation-flow"
+        }
+      ],
+      "eventHandlers": [
+        {
+          "event": "sys.no-match-default",
+          "targetFlow": "projects/YOUR_PROJECT_ID/locations/us-central1/agents/YOUR_AGENT_ID/flows/escalation-flow"
+        }
+      ]
+    },
+    {
+      "displayName": "Password Reset Flow",
+      "description": "Collects employee email and calls PasswordHandler via webhook.",
+      "pages": [
+        {
+          "displayName": "Collect Employee Email",
+          "form": {
+            "parameters": [
+              {
+                "displayName": "user_id",
+                "entityType": "@sys.email",
+                "required": true,
+                "fillBehavior": {
+                  "initialPromptFulfillment": {
+                    "messages": [{ "text": { "text": ["What's your work email address?"] } }]
+                  }
+                }
+              }
+            ]
+          },
+          "transitionRoutes": [
+            {
+              "condition": "$page.params.status = \"FINAL\"",
+              "targetPage": "Confirm Reset"
+            }
+          ]
+        },
+        {
+          "displayName": "Confirm Reset",
+          "entryFulfillment": {
+            "webhook": "it-assistant-webhook",
+            "tag": ""
+          },
+          "transitionRoutes": [
+            {
+              "condition": "true",
+              "targetPage": "END_SESSION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayName": "Ticket Management Flow",
+      "description": "Handles both ticket creation (tag: create) and status queries (tag: status).",
+      "pages": [
+        {
+          "displayName": "Collect Issue Description",
+          "form": {
+            "parameters": [
+              {
+                "displayName": "caller_id",
+                "entityType": "@sys.email",
+                "required": true,
+                "fillBehavior": {
+                  "initialPromptFulfillment": {
+                    "messages": [{ "text": { "text": ["What's your work email?"] } }]
+                  }
+                }
+              },
+              {
+                "displayName": "short_description",
+                "entityType": "@sys.any",
+                "required": true,
+                "fillBehavior": {
+                  "initialPromptFulfillment": {
+                    "messages": [{ "text": { "text": ["Please briefly describe the issue."] } }]
+                  }
+                }
+              }
+            ]
+          },
+          "transitionRoutes": [
+            {
+              "condition": "$page.params.status = \"FINAL\"",
+              "targetPage": "Create Ticket"
+            }
+          ]
+        },
+        {
+          "displayName": "Create Ticket",
+          "entryFulfillment": {
+            "webhook": "it-assistant-webhook",
+            "tag": "create"
+          },
+          "transitionRoutes": [
+            { "condition": "true", "targetPage": "END_SESSION" }
+          ]
+        },
+        {
+          "displayName": "Collect Ticket Number",
+          "form": {
+            "parameters": [
+              {
+                "displayName": "ticket_number",
+                "entityType": "@it.ticket-number",
+                "required": true,
+                "fillBehavior": {
+                  "initialPromptFulfillment": {
+                    "messages": [{ "text": { "text": ["What's the ticket number? It starts with INC."] } }]
+                  }
+                }
+              }
+            ]
+          },
+          "transitionRoutes": [
+            {
+              "condition": "$page.params.status = \"FINAL\"",
+              "targetPage": "Check Status"
+            }
+          ]
+        },
+        {
+          "displayName": "Check Status",
+          "entryFulfillment": {
+            "webhook": "it-assistant-webhook",
+            "tag": "status"
+          },
+          "transitionRoutes": [
+            { "condition": "true", "targetPage": "END_SESSION" }
+          ]
+        }
+      ]
+    },
+    {
+      "displayName": "VPN Troubleshooting Flow",
+      "description": "Collects user_id and symptoms, calls VPNHandler, routes to escalation if needed.",
+      "pages": [
+        {
+          "displayName": "Collect VPN Symptoms",
+          "form": {
+            "parameters": [
+              {
+                "displayName": "user_id",
+                "entityType": "@sys.email",
+                "required": true,
+                "fillBehavior": {
+                  "initialPromptFulfillment": {
+                    "messages": [{ "text": { "text": ["I can help with that. What's your work email?"] } }]
+                  }
+                }
+              },
+              {
+                "displayName": "symptoms",
+                "entityType": "@it.vpn-symptom",
+                "required": false,
+                "isList": true
+              }
+            ]
+          },
+          "transitionRoutes": [
+            {
+              "condition": "$session.params.user_id != null",
+              "targetPage": "Run Diagnostics"
+            }
+          ]
+        },
+        {
+          "displayName": "Run Diagnostics",
+          "entryFulfillment": {
+            "webhook": "it-assistant-webhook",
+            "tag": ""
+          },
+          "transitionRoutes": [
+            { "condition": "true", "targetPage": "END_SESSION" }
+          ]
+        }
+      ]
+    },
+    {
+      "displayName": "Escalation Flow",
+      "description": "Collects user_id and reason, creates high-priority ServiceNow ticket, returns queue info.",
+      "pages": [
+        {
+          "displayName": "Collect Escalation Reason",
+          "entryFulfillment": {
+            "messages": [{ "text": { "text": ["I'll connect you with an IT specialist. Can you briefly describe your issue?"] } }]
+          },
+          "form": {
+            "parameters": [
+              {
+                "displayName": "user_id",
+                "entityType": "@sys.email",
+                "required": true,
+                "fillBehavior": {
+                  "initialPromptFulfillment": {
+                    "messages": [{ "text": { "text": ["What's your work email?"] } }]
+                  }
+                }
+              },
+              {
+                "displayName": "reason",
+                "entityType": "@sys.any",
+                "required": false
+              }
+            ]
+          },
+          "transitionRoutes": [
+            {
+              "condition": "$session.params.user_id != null",
+              "targetPage": "Escalate"
+            }
+          ]
+        },
+        {
+          "displayName": "Escalate",
+          "entryFulfillment": {
+            "webhook": "it-assistant-webhook",
+            "tag": ""
+          },
+          "transitionRoutes": [
+            { "condition": "true", "targetPage": "END_SESSION" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -74,6 +74,40 @@ class ResponseBuilder:
         )
         return self._text_response(msg)
 
+    def build_vpn_response(self, diagnosis: str, steps: list[str]) -> WebhookResponse:
+        """Build a VPN troubleshooting response with diagnosis and numbered steps.
+
+        Args:
+            diagnosis: One-sentence summary of the VPN issue or status.
+            steps: Ordered list of remediation actions for the employee.
+        """
+        if steps:
+            steps_text = " ".join(f"{i + 1}. {s}" for i, s in enumerate(steps))
+            msg = f"{diagnosis} {steps_text}"
+        else:
+            msg = diagnosis
+        return self._text_response(msg)
+
+    def build_vpn_escalation_response(self, diagnosis: str, steps: list[str]) -> WebhookResponse:
+        """Build a VPN response that includes an advisory to escalate to IT.
+
+        Args:
+            diagnosis: One-sentence summary of the VPN issue.
+            steps: Ordered list of steps to try before escalating.
+        """
+        if steps:
+            steps_text = " ".join(f"{i + 1}. {s}" for i, s in enumerate(steps))
+            msg = (
+                f"{diagnosis} {steps_text} "
+                "If the issue persists after these steps, I recommend escalating to an IT specialist."
+            )
+        else:
+            msg = (
+                f"{diagnosis} "
+                "I recommend escalating this to an IT specialist for further investigation."
+            )
+        return self._text_response(msg)
+
     def build_error_response(self, message: str) -> WebhookResponse:
         """Build a generic error response for service failures."""
         return self._text_response(message)

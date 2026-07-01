@@ -34,6 +34,11 @@ from app.services.business.session_service import SessionService
 from app.services.business.ticket_service import TicketService
 from app.services.business.vpn_service import VPNService
 from app.webhook.dispatcher import IntentDispatcher
+from app.webhook.handlers.escalation_handler import EscalationHandler
+from app.webhook.handlers.password_handler import PasswordHandler
+from app.webhook.handlers.ticket_handler import TicketHandler
+from app.webhook.handlers.vpn_handler import VPNHandler
+from app.webhook.response_builder import ResponseBuilder
 
 
 def get_logger() -> structlog.BoundLogger:
@@ -139,19 +144,8 @@ def get_vpn_client(
     )
 
 
-def get_intent_dispatcher(
-    logger: structlog.BoundLogger = Depends(get_logger),
-) -> IntentDispatcher:
-    """Provide a fully-wired IntentDispatcher with all handlers registered.
-
-    Handlers are registered in Phase 3d. For Phase 3a, the dispatcher is
-    returned with no handlers — all webhook calls return a fallback response.
-    """
-    return IntentDispatcher(logger=logger)
-
-
 # ---------------------------------------------------------------------------
-# Service providers — implemented in later phases
+# Service providers
 # ---------------------------------------------------------------------------
 
 def get_session_service(
@@ -208,6 +202,44 @@ def get_escalation_service(
     return EscalationService(
         servicenow_client=servicenow_client, session_service=session_service, logger=logger
     )
+
+
+def get_intent_dispatcher(
+    password_service: PasswordService = Depends(get_password_service),
+    ticket_service: TicketService = Depends(get_ticket_service),
+    vpn_service: VPNService = Depends(get_vpn_service),
+    escalation_service: EscalationService = Depends(get_escalation_service),
+    logger: structlog.BoundLogger = Depends(get_logger),
+) -> IntentDispatcher:
+    """Provide a fully-wired IntentDispatcher with all production handlers registered.
+
+    A single TicketHandler instance is registered under both it.ticket.create and
+    it.ticket.status — the handler branches on fulfillment_info.tag internally.
+    RAGHandler is registered in Phase 6 once LLMService and RAGService are available.
+    """
+    builder = ResponseBuilder()
+    dispatcher = IntentDispatcher(logger=logger)
+
+    ticket_handler = TicketHandler(
+        ticket_service=ticket_service, response_builder=builder, logger=logger
+    )
+
+    dispatcher.register(
+        "it.password.reset",
+        PasswordHandler(password_service=password_service, response_builder=builder, logger=logger),
+    )
+    dispatcher.register("it.ticket.create", ticket_handler)
+    dispatcher.register("it.ticket.status", ticket_handler)
+    dispatcher.register(
+        "it.vpn.troubleshoot",
+        VPNHandler(vpn_service=vpn_service, response_builder=builder, logger=logger),
+    )
+    dispatcher.register(
+        "it.escalate",
+        EscalationHandler(escalation_service=escalation_service, response_builder=builder, logger=logger),
+    )
+
+    return dispatcher
 
 
 def get_llm_service(
