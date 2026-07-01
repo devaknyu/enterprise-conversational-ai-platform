@@ -95,7 +95,11 @@ class WebhookResponse(BaseModel):
         Returns:
             A WebhookResponse with the fallback message.
         """
-        ...
+        return cls(
+            fulfillment_response=FulfillmentResponse(
+                messages=[ResponseMessage(text=TextMessage(text=[message]))]
+            )
+        )
 
     @classmethod
     def error(cls, message: str) -> "WebhookResponse":
@@ -107,4 +111,8 @@ class WebhookResponse(BaseModel):
         Returns:
             A WebhookResponse with the error message.
         """
-        ...
+        return cls(
+            fulfillment_response=FulfillmentResponse(
+                messages=[ResponseMessage(text=TextMessage(text=[message]))]
+            )
+        )

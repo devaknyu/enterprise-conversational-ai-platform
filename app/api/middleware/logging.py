@@ -2,6 +2,7 @@
 
 import uuid
 
+import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -25,4 +26,20 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         Returns:
             The route response, unchanged.
         """
-        ...
+        request_id = str(uuid.uuid4())
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(request_id=request_id)
+        request.state.request_id = request_id
+
+        logger = structlog.get_logger(__name__)
+        logger.info("request_received", method=request.method, path=request.url.path)
+
+        response = await call_next(request)
+
+        logger.info(
+            "request_completed",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+        )
+        return response

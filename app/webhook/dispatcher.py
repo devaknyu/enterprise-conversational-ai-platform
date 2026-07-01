@@ -7,6 +7,7 @@ one new handler here — no changes to the route or middleware.
 
 import structlog
 
+from app.core.exceptions import IntentNotFoundError
 from app.models.dialogflow import WebhookRequest, WebhookResponse
 from app.webhook.handlers.base_handler import BaseHandler
 
@@ -30,7 +31,8 @@ class IntentDispatcher:
             intent_name: Dialogflow intent display name (e.g. "it.password.reset").
             handler: Handler instance that implements BaseHandler.handle().
         """
-        ...
+        self._handlers[intent_name] = handler
+        self.logger.info("handler_registered", intent=intent_name)
 
     async def dispatch(self, request: WebhookRequest) -> WebhookResponse:
         """Route the incoming request to the appropriate handler.
@@ -44,4 +46,9 @@ class IntentDispatcher:
         Raises:
             IntentNotFoundError: If no handler is registered for the intent.
         """
-        ...
+        intent = request.intent_info.display_name
+        handler = self._handlers.get(intent)
+        if handler is None:
+            raise IntentNotFoundError(f"No handler registered for intent: {intent!r}")
+        self.logger.info("dispatching_intent", intent=intent)
+        return await handler.handle(request)

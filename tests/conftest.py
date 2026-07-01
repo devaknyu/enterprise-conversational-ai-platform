@@ -7,11 +7,28 @@ Follows the pytest-convention skill: DI overrides, not module-level patch.
 Implemented in Phase 3a — stubs here, filled in as services are built.
 """
 
-import pytest
-import structlog
-from httpx import AsyncClient, ASGITransport
+import os
 
-from app.config import Settings
+# Set required env vars before any app module is imported so Settings() can
+# be instantiated without a .env file during the test run.
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-minimum-32-characters-long")
+os.environ.setdefault("WEBHOOK_SHARED_SECRET", "test-webhook-secret-1234")
+os.environ.setdefault("APP_ENV", "development")
+os.environ.setdefault("LLM_BACKEND", "gemini_api")
+os.environ.setdefault("GEMINI_API_KEY", "test-key-not-real")
+os.environ.setdefault("EMBEDDING_BACKEND", "local")
+os.environ.setdefault("USE_MOCK_INTEGRATIONS", "true")
+os.environ.setdefault("MOCK_ERROR_RATE", "0.0")
+os.environ.setdefault("MOCK_LATENCY_MS_MIN", "0")
+os.environ.setdefault("MOCK_LATENCY_MS_MAX", "0")
+
+from typing import AsyncGenerator  # noqa: E402
+
+import pytest  # noqa: E402
+import structlog  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+
+from app.config import Settings  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +72,37 @@ def test_settings() -> Settings:
 def test_logger() -> structlog.BoundLogger:
     """Configured structlog logger for test use."""
     return structlog.get_logger("test")
+
+
+# ---------------------------------------------------------------------------
+# HTTP Client
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+async def async_client(test_settings: Settings) -> AsyncGenerator[AsyncClient, None]:
+    """Async HTTP client for integration tests, with DI overrides applied.
+
+    Overrides get_settings() with test_settings so routes use zero-latency
+    mock integrations and deterministic JWT secrets.
+    """
+    from app.config import get_settings
+    from app.main import app
+
+    app.dependency_overrides[get_settings] = lambda: test_settings
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def auth_headers(test_settings: Settings) -> dict[str, str]:
+    """Valid JWT Authorization header for webhook requests in tests."""
+    from app.core.security import create_webhook_token
+
+    token = create_webhook_token(
+        test_settings.jwt_secret_key, test_settings.jwt_expiry_minutes
+    )
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ---------------------------------------------------------------------------

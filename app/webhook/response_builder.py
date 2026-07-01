@@ -32,31 +32,51 @@ class ResponseBuilder:
         Returns:
             WebhookResponse with delivery method and ticket reference in message.
         """
-        ...
+        msg = (
+            f"Your password reset has been sent to your {result.delivery_method}. "
+            f"It should arrive within {result.estimated_delivery_minutes} minutes. "
+            f"Reference: {result.ticket_reference}."
+        )
+        return self._text_response(msg)
 
     def build_password_reset_user_not_found(self, user_id: str) -> WebhookResponse:
         """Build a response for a password reset where the user was not found."""
-        ...
+        return self._text_response(
+            f"I couldn't find an account for {user_id!r}. "
+            "Please verify your employee ID or contact IT support directly."
+        )
 
     def build_ticket_created_response(self, result: IncidentResult) -> WebhookResponse:
         """Build a response confirming a new IT ticket was created."""
-        ...
+        msg = (
+            f"IT ticket {result.ticket_number} has been created: {result.short_description}. "
+            f"Priority: {result.priority}. You'll receive email updates as the ticket progresses."
+        )
+        return self._text_response(msg)
 
     def build_ticket_status_response(self, result: IncidentResult) -> WebhookResponse:
         """Build a response with the current status of an existing ticket."""
-        ...
+        msg = (
+            f"Ticket {result.ticket_number}: {result.state}. "
+            f"{result.short_description}. Assigned to: {result.assigned_to}."
+        )
+        return self._text_response(msg)
 
     def build_rag_response(self, generated_text: str) -> WebhookResponse:
         """Build a response containing LLM-generated policy answer text."""
-        ...
+        return self._text_response(generated_text)
 
     def build_escalation_response(self, queue_position: int, wait_minutes: int) -> WebhookResponse:
         """Build a response confirming escalation and providing queue information."""
-        ...
+        msg = (
+            f"I've escalated your request to an IT specialist. "
+            f"You're #{queue_position} in the queue with an estimated wait of ~{wait_minutes} minutes."
+        )
+        return self._text_response(msg)
 
     def build_error_response(self, message: str) -> WebhookResponse:
         """Build a generic error response for service failures."""
-        ...
+        return self._text_response(message)
 
     @staticmethod
     def _text_response(message: str) -> WebhookResponse:

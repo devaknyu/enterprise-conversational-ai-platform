@@ -7,7 +7,11 @@ with the shared JWT_SECRET_KEY from settings.
 See adr/004-jwt-webhook-auth.md for the full rationale.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+from jose import JWTError, jwt
+
+from app.core.exceptions import AuthenticationError
 
 
 def create_webhook_token(secret: str, expiry_minutes: int = 60) -> str:
@@ -20,7 +24,13 @@ def create_webhook_token(secret: str, expiry_minutes: int = 60) -> str:
     Returns:
         Signed JWT string suitable for use in Authorization: Bearer <token>.
     """
-    ...
+    now = datetime.now(timezone.utc)
+    payload = {
+        "iss": "enterprise-it-assistant",
+        "iat": now,
+        "exp": now + timedelta(minutes=expiry_minutes),
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
 
 
 def decode_webhook_token(token: str, secret: str) -> dict:
@@ -40,4 +50,7 @@ def decode_webhook_token(token: str, secret: str) -> dict:
         AuthenticationError: If the token is missing, expired, or has an
             invalid signature.
     """
-    ...
+    try:
+        return jwt.decode(token, secret, algorithms=["HS256"])
+    except JWTError as e:
+        raise AuthenticationError(f"Token validation failed: {e}") from e
