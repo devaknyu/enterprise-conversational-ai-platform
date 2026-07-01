@@ -28,6 +28,7 @@ from app.services.platform.llm_backends.base import BaseLLMBackend
 from app.services.platform.llm_backends.gemini_api import GeminiAPIBackend
 from app.services.platform.llm_backends.vertex_ai import VertexAIBackend
 from app.services.platform.llm_service import LLMService
+from app.services.platform.rag_service import RAGService
 from app.services.business.auth_service import AuthService
 from app.services.business.escalation_service import EscalationService
 from app.services.business.password_service import PasswordService
@@ -37,6 +38,7 @@ from app.services.business.vpn_service import VPNService
 from app.webhook.dispatcher import IntentDispatcher
 from app.webhook.handlers.escalation_handler import EscalationHandler
 from app.webhook.handlers.password_handler import PasswordHandler
+from app.webhook.handlers.rag_handler import RAGHandler
 from app.webhook.handlers.ticket_handler import TicketHandler
 from app.webhook.handlers.vpn_handler import VPNHandler
 from app.webhook.response_builder import ResponseBuilder
@@ -205,18 +207,41 @@ def get_escalation_service(
     )
 
 
+def get_llm_service(
+    backend: BaseLLMBackend = Depends(get_llm_backend),
+    logger: structlog.BoundLogger = Depends(get_logger),
+) -> LLMService:
+    """Provide an LLMService with the configured backend (gemini_api or vertex_ai)."""
+    return LLMService(backend=backend, logger=logger)
+
+
+def get_rag_service(
+    embedding_backend: BaseEmbeddingBackend = Depends(get_embedding_backend),
+    settings: Settings = Depends(get_settings),
+    logger: structlog.BoundLogger = Depends(get_logger),
+) -> RAGService:
+    """Provide a RAGService with injected embedding backend and ChromaDB config."""
+    return RAGService(
+        embedding_backend=embedding_backend,
+        persist_dir=settings.chroma_persist_dir,
+        collection_name=settings.chroma_collection_name,
+        logger=logger,
+    )
+
+
 def get_intent_dispatcher(
     password_service: PasswordService = Depends(get_password_service),
     ticket_service: TicketService = Depends(get_ticket_service),
     vpn_service: VPNService = Depends(get_vpn_service),
     escalation_service: EscalationService = Depends(get_escalation_service),
+    rag_service: RAGService = Depends(get_rag_service),
+    llm_service: LLMService = Depends(get_llm_service),
     logger: structlog.BoundLogger = Depends(get_logger),
 ) -> IntentDispatcher:
     """Provide a fully-wired IntentDispatcher with all production handlers registered.
 
     A single TicketHandler instance is registered under both it.ticket.create and
     it.ticket.status — the handler branches on fulfillment_info.tag internally.
-    RAGHandler is registered in Phase 6 once LLMService and RAGService are available.
     """
     builder = ResponseBuilder()
     dispatcher = IntentDispatcher(logger=logger)
@@ -239,22 +264,9 @@ def get_intent_dispatcher(
         "it.escalate",
         EscalationHandler(escalation_service=escalation_service, response_builder=builder, logger=logger),
     )
+    dispatcher.register(
+        "it.policy.query",
+        RAGHandler(rag_service=rag_service, llm_service=llm_service, response_builder=builder, logger=logger),
+    )
 
     return dispatcher
-
-
-def get_llm_service(
-    backend: BaseLLMBackend = Depends(get_llm_backend),
-    logger: structlog.BoundLogger = Depends(get_logger),
-) -> LLMService:
-    """Provide an LLMService with the configured backend (gemini_api or vertex_ai)."""
-    return LLMService(backend=backend, logger=logger)
-
-
-def get_rag_service(
-    embedding_backend: BaseEmbeddingBackend = Depends(get_embedding_backend),
-    settings: Settings = Depends(get_settings),
-    logger: structlog.BoundLogger = Depends(get_logger),
-) -> object:
-    """Provide a RAGService with injected embedding backend. Implemented in Phase 6."""
-    ...

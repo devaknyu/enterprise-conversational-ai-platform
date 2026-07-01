@@ -4,8 +4,10 @@ Retrieves semantically relevant document chunks from ChromaDB to ground
 LLMService responses. Always called before LLMService for policy questions.
 """
 
+import chromadb
 import structlog
 
+from app.core.exceptions import EmbeddingError, RAGRetrievalError
 from app.services.business.base import BaseService
 from app.services.platform.embedding_backends.base import BaseEmbeddingBackend
 
@@ -32,6 +34,14 @@ class RAGService(BaseService):
         self.embedding_backend = embedding_backend
         self.persist_dir = persist_dir
         self.collection_name = collection_name
+        # Lazily initialized on first retrieve() call so the app starts without ChromaDB.
+        self._client: chromadb.PersistentClient | None = None
+
+    def _get_client(self) -> chromadb.PersistentClient:
+        """Return the ChromaDB client, creating it on first access."""
+        if self._client is None:
+            self._client = chromadb.PersistentClient(path=self.persist_dir)
+        return self._client
 
     async def retrieve(
         self,
@@ -57,4 +67,38 @@ class RAGService(BaseService):
             RAGRetrievalError: If the ChromaDB query fails.
             EmbeddingError: If embedding generation fails.
         """
-        ...
+        # EmbeddingError is allowed to propagate — caller handles it separately.
+        vectors = await self.embedding_backend.embed([query])
+        query_vector = vectors[0]
+
+        try:
+            collection = self._get_client().get_collection(name=self.collection_name)
+        except Exception as exc:
+            raise RAGRetrievalError(
+                f"Collection '{self.collection_name}' not found — run scripts/ingest_knowledge_base.py"
+            ) from exc
+
+        try:
+            query_kwargs: dict = {
+                "query_embeddings": [query_vector],
+                "n_results": top_k,
+            }
+            if category_filter is not None:
+                query_kwargs["where"] = {"category": category_filter}
+
+            results = collection.query(**query_kwargs)
+            chunks: list[str] = results["documents"][0]
+
+            self.logger.info(
+                "rag_retrieve",
+                query_length=len(query),
+                top_k=top_k,
+                category_filter=category_filter,
+                chunks_returned=len(chunks),
+            )
+            return chunks
+        except EmbeddingError:
+            raise
+        except Exception as exc:
+            self.logger.error("rag_retrieve_failed", error=str(exc))
+            raise RAGRetrievalError(str(exc)) from exc
